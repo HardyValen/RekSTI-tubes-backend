@@ -8,7 +8,7 @@ const admin = require('firebase-admin');
 router.get('/', async function(req, res) {
   const db = admin.firestore()
 
-  const snapshot = await db.collection('iot-readings').get();
+  const snapshot = await db.collection('iot_readings').get();
   const data = []
 
   snapshot.forEach(doc => {
