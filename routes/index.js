@@ -148,7 +148,7 @@ async function getAllDataByDate({
 }
 
 // 00. GET DATA FROM CERTAIN COLLECTION WITH QUERY
-router.get('/', async function(req, res) {
+router.get('', async function(req, res) {
   const db = admin.firestore()
   const {
     sensor_node = 'sensor_1',
@@ -183,7 +183,7 @@ router.get('/', async function(req, res) {
 });
 
 // 01. POST IOT DATA
-router.post('/data/iot_listener', function(req, res) {
+router.post('/iot_listener', function(req, res) {
   const {suhu = 0, kelembaban_tanah = 0, kelembaban_udara = 0, sensor_node = 'sensor_1'} = req.body || {};
   let date = new Date()
 
@@ -215,7 +215,7 @@ router.post('/data/iot_listener', function(req, res) {
 }) 
 
 // 02. GENERATE FAKER DATA
-router.post('/data/faker', function(req, res) {
+router.post('/faker', function(req, res) {
   const {sensor_node = 'sensor_1'} = req.body || {};
   const db = admin.firestore()
   const batch = db.batch()

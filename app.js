@@ -48,6 +48,7 @@ admin.initializeApp({
 })
 
 // Express Routers
-app.use('/', indexRouter);
+app.use('/data', indexRouter);
+app.use(express.static("public"))
 
 module.exports = app;
