@@ -3,6 +3,7 @@ const path = require('path');
 const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 const fs = require('fs')
+const cors = require('cors')
 
 // Router
 const indexRouter = require('./routes/index');
@@ -10,8 +11,15 @@ const indexRouter = require('./routes/index');
 // Init Express
 const app = express();
 
+app.use(
+  cors({
+    methods: "GET,POST,PATCH,DELETE,OPTIONS",
+    origin: `http://localhost:3000`,
+    // credentials: true,
+  })
+);
 app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // Morgan and Winston Logging

@@ -4,7 +4,7 @@ const router = express.Router();
 const admin = require('firebase-admin');
 const moment = require('moment');
 const ss = require("simple-statistics");
-const { data } = require('../config/winston-logger');
+const momentRandom = require("moment-random");
 
 // F-00, GET ALL DATA
 async function getAllData({db, sensor_node, limit = null} = {}) {
@@ -28,6 +28,8 @@ async function getAllData({db, sensor_node, limit = null} = {}) {
     kelembaban_udara: []
   }
 
+  
+
   snapshot.forEach(doc => {
     let docData = doc.data();
     
@@ -36,7 +38,8 @@ async function getAllData({db, sensor_node, limit = null} = {}) {
       suhu: parseFloat(docData.suhu),
       kelembaban_tanah: parseFloat(docData.kelembaban_tanah),
       kelembaban_udara: parseFloat(docData.kelembaban_udara),
-      created_at: docData.created_at
+      created_at: new admin.firestore.Timestamp(docData.created_at._seconds, docData.created_at._nanoseconds).toDate()
+
     }
 
     // Push Data
@@ -52,12 +55,12 @@ async function getAllData({db, sensor_node, limit = null} = {}) {
   Object.entries(seriesTemp).forEach(entry => {
     if (entry[1].length > 0) {
       data.statistics[entry[0]] = {}
-      data.statistics[entry[0]].min = ss.min(entry[1])
-      data.statistics[entry[0]].max = ss.max(entry[1])
-      data.statistics[entry[0]].range = ss.max(entry[1]) - ss.min(entry[1])
-      data.statistics[entry[0]].mean = ss.mean(entry[1])
-      data.statistics[entry[0]].median = ss.median(entry[1])
-      data.statistics[entry[0]].standardDeviation = ss.standardDeviation(entry[1])
+      data.statistics[entry[0]]["Nilai Minimal"] = ss.min(entry[1])
+      data.statistics[entry[0]]["Nilai Maksimal"] = ss.max(entry[1])
+      data.statistics[entry[0]]["Rentang"] = ss.max(entry[1]) - ss.min(entry[1])
+      data.statistics[entry[0]]["Rata-Rata"] = ss.mean(entry[1])
+      data.statistics[entry[0]]["Nilai Tengah"] = ss.median(entry[1])
+      data.statistics[entry[0]]["Standar Deviasi"] = ss.standardDeviation(entry[1])
     }
   })
   
@@ -65,14 +68,21 @@ async function getAllData({db, sensor_node, limit = null} = {}) {
 }
 
 // F-01, GET DATA BY DATE
-async function getAllDataByDate({db, sensor_node, date, limit = null} = {}) {
+async function getAllDataByDate({
+  db, 
+  sensor_node, 
+  startDate, 
+  endDate, 
+  limit = null
+} = {}) {
+  
   const data = {
     objSeries: [],
     statistics: {}
   }
 
-  let m1 = moment(date || new Date())
-  let m2 = moment(date || new Date())
+  let m1 = moment(startDate || new Date())
+  let m2 = moment(endDate || new Date())
 
   m1.startOf("day")
   m2.endOf("day")
@@ -102,7 +112,7 @@ async function getAllDataByDate({db, sensor_node, date, limit = null} = {}) {
       suhu: parseFloat(docData.suhu),
       kelembaban_tanah: parseFloat(docData.kelembaban_tanah),
       kelembaban_udara: parseFloat(docData.kelembaban_udara),
-      created_at: docData.created_at
+      created_at: new admin.firestore.Timestamp(docData.created_at._seconds, docData.created_at._nanoseconds).toDate()
     }
 
     // Push Data
@@ -118,12 +128,12 @@ async function getAllDataByDate({db, sensor_node, date, limit = null} = {}) {
   Object.entries(seriesTemp).forEach(entry => {
     if (entry[1].length > 0) {
       data.statistics[entry[0]] = {}
-      data.statistics[entry[0]].min = ss.min(entry[1])
-      data.statistics[entry[0]].max = ss.max(entry[1])
-      data.statistics[entry[0]].range = ss.max(entry[1]) - ss.min(entry[1])
-      data.statistics[entry[0]].mean = ss.mean(entry[1])
-      data.statistics[entry[0]].median = ss.median(entry[1])
-      data.statistics[entry[0]].standardDeviation = ss.standardDeviation(entry[1])
+      data.statistics[entry[0]]["Nilai Minimal"] = ss.min(entry[1])
+      data.statistics[entry[0]]["Nilai Maksimal"] = ss.max(entry[1])
+      data.statistics[entry[0]]["Rentang"] = ss.max(entry[1]) - ss.min(entry[1])
+      data.statistics[entry[0]]["Rata-Rata"] = ss.mean(entry[1])
+      data.statistics[entry[0]]["Nilai Tengah"] = ss.median(entry[1])
+      data.statistics[entry[0]]["Standar Deviasi"] = ss.standardDeviation(entry[1])
     }
   })
 
@@ -142,14 +152,25 @@ router.get('/', async function(req, res) {
   const db = admin.firestore()
   const {
     sensor_node = 'sensor_1',
-    date = "",
+    start_date = "",
+    end_date = "",
     type = "",
     limit= null,
   } = req.query || {};
 
   switch (type) {
-    case "day":  // 01 - GET DATA BY DAY
-      var data = await getAllDataByDate({db, sensor_node, date, limit})
+    case "by_start_end_date":  // 01 - GET DATA BY START TO END DATE
+      var data = await getAllDataByDate({db, sensor_node, startDate: start_date, endDate: end_date, limit})
+      res.status(200).json(data)
+      break;
+
+    case "by_start_date": // 02 - GET DATA BY START DATE
+      var data = await getAllDataByDate({db, sensor_node, startDate: start_date, endDate: new Date(), limit})
+      res.status(200).json(data)
+      break;
+
+    case "by_end_date": // 03 - GET DATA BY END DATE, DEFAULT DATE FROM 1st January 2021
+      var data = await getAllDataByDate({db, sensor_node, startDate: new Date("January 1, 2021 00:00:00"), endDate: end_date, limit})
       res.status(200).json(data)
       break;
   
@@ -200,13 +221,19 @@ router.post('/data/faker', function(req, res) {
   const batch = db.batch()
 
   for(let i = 0; i < 50; i++) {
-    let date = new Date()
-    date.setDate(date.getDate() - (Math.floor(Math.random() * 6)))
+    let m1 = moment();
+    let m2 = moment();
+
+    m1.add(-5, "days");
+    m1.startOf("day");
+    m2.endOf("day");
+    
+    let date = momentRandom(m2, m1)
     
     const data = {
       suhu: (16 + Math.random() * 20).toFixed(2),
-      kelembaban_tanah: (Math.random() * 100).toFixed(2),
-      kelembaban_udara: (Math.random() * 100).toFixed(2),
+      kelembaban_tanah: (40 + Math.random() * 55).toFixed(2),
+      kelembaban_udara: (60 + Math.random() * 40).toFixed(2),
       created_at: date
     }
     
